@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     # JWT
     jwt_secret_key: str = "CHANGE_ME_generate_a_real_secret_key"
     jwt_algorithm: str = "HS256"
-    jwt_access_token_expire_minutes: int = 30
+    jwt_access_token_expire_minutes: int = 10080  # 7 days
 
     # AI
     gemini_api_key: str = ""
