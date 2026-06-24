@@ -16,7 +16,7 @@ import json
 import logging
 from typing import Any
 
-import google.generativeai as genai
+from google import genai
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -33,8 +33,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # ── Gemini client setup ──────────────────────────────────────────────────────
-genai.configure(api_key=settings.gemini_api_key)
-_gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+_genai_client = genai.Client(api_key=settings.gemini_api_key)
 
 # ── Schemas ──────────────────────────────────────────────────────────────────
 SUPPORTED_LANGUAGES = [
@@ -103,12 +102,13 @@ def _build_prompt(language: str, review_focus: str, user_code: str) -> str:
 def _call_gemini(prompt: str) -> dict:
     """Call Gemini and parse JSON response. Raises HTTPException on failure."""
     try:
-        response = _gemini_model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.2,
-                max_output_tokens=4096,
-            ),
+        response = _genai_client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+            config={
+                "temperature": 0.2,
+                "max_output_tokens": 4096,
+            },
         )
         raw = response.text.strip()
         # Strip markdown fences if model wraps output despite instructions
