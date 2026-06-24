@@ -2,10 +2,32 @@ import axios from 'axios';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
+const TOKEN_KEY = 'codesensei_token';
+
+export const getToken = (): string | null =>
+  typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+
+export const saveToken = (token: string) => {
+  if (typeof window !== 'undefined') localStorage.setItem(TOKEN_KEY, token);
+};
+
+export const clearToken = () => {
+  if (typeof window !== 'undefined') localStorage.removeItem(TOKEN_KEY);
+};
+
 const api = axios.create({
   baseURL: API_BASE,
-  withCredentials: true, // send httpOnly cookies automatically
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
+});
+
+// Attach Bearer token from localStorage on every request
+api.interceptors.request.use((config) => {
+  const token = getToken();
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+  return config;
 });
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
@@ -15,7 +37,10 @@ export const registerUser = (email: string, password: string) =>
 export const loginUser = (email: string, password: string) =>
   api.post('/api/auth/login', { email, password });
 
-export const logoutUser = () => api.post('/api/auth/logout');
+export const logoutUser = () => {
+  clearToken();
+  return api.post('/api/auth/logout');
+};
 
 export const getCurrentUser = () => api.get('/api/auth/me');
 

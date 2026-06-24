@@ -3,7 +3,7 @@
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { registerUser } from '@/lib/api';
+import { registerUser, saveToken } from '@/lib/api';
 import { AxiosError } from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '(not set — using localhost:8000)';
@@ -29,7 +29,8 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      await registerUser(email, password);
+      const res = await registerUser(email, password);
+      saveToken(res.data.access_token);
       router.push('/dashboard');
     } catch (err) {
       console.error('Registration error:', err);

@@ -1,17 +1,16 @@
 """
 Authentication Router — CodeSensei
 ────────────────────────────────────
-POST /api/auth/register — hash password, create user, set JWT cookie
-POST /api/auth/login    — verify credentials, set httpOnly JWT cookie
+POST /api/auth/register — hash password, create user, return JWT token
+POST /api/auth/login    — verify credentials, return JWT token
 GET  /api/auth/me       — return current user profile (requires auth)
 POST /api/auth/logout   — clear the auth cookie
 """
 
 import datetime
-from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
@@ -25,6 +24,8 @@ router = APIRouter()
 
 # ── Password Hashing ────────────────────────────────────────────────────────
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -60,22 +61,30 @@ def decode_access_token(token: str) -> dict:
 
 
 def _set_auth_cookie(response: Response, token: str) -> None:
-    """Attach the JWT as an httpOnly, Secure, SameSite=None cookie (cross-origin safe)."""
+    """Attach the JWT as an httpOnly cookie (best-effort; Bearer token is primary)."""
     is_prod = settings.environment != "development"
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=is_prod,                        # True in prod (HTTPS required)
-        samesite="none" if is_prod else "lax", # None allows cross-origin (Vercel ↔ Railway)
+        secure=is_prod,
+        samesite="none" if is_prod else "lax",
         max_age=settings.jwt_access_token_expire_minutes * 60,
         path="/",
     )
 
 
-# ── Dependency: get current user from cookie ────────────────────────────────
-def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    token = request.cookies.get(COOKIE_NAME)
+# ── Dependency: get current user from Bearer token OR cookie ────────────────
+def get_current_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User:
+    # 1. Try Bearer token from Authorization header (cross-origin safe)
+    token = credentials.credentials if credentials else None
+    # 2. Fall back to httpOnly cookie
+    if not token:
+        token = request.cookies.get(COOKIE_NAME)
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -108,10 +117,21 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AuthResponse(BaseModel):
+    """Returned on register/login — includes JWT so clients can store it."""
+    id: int
+    email: str
+    created_at: datetime.datetime
+    access_token: str
+    token_type: str = "bearer"
+
+    model_config = {"from_attributes": True}
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────
 @router.post(
     "/register",
-    response_model=UserResponse,
+    response_model=AuthResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register a new account",
 )
@@ -139,10 +159,15 @@ async def register(
 
     token = create_access_token(user.id, user.email)
     _set_auth_cookie(response, token)
-    return user
+    return AuthResponse(
+        id=user.id,
+        email=user.email,
+        created_at=user.created_at,
+        access_token=token,
+    )
 
 
-@router.post("/login", response_model=UserResponse, summary="Log in")
+@router.post("/login", response_model=AuthResponse, summary="Log in")
 async def login(
     payload: RegisterRequest,
     response: Response,
@@ -156,7 +181,12 @@ async def login(
         )
     token = create_access_token(user.id, user.email)
     _set_auth_cookie(response, token)
-    return user
+    return AuthResponse(
+        id=user.id,
+        email=user.email,
+        created_at=user.created_at,
+        access_token=token,
+    )
 
 
 @router.get("/me", response_model=UserResponse, summary="Get current user")

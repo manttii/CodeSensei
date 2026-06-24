@@ -3,7 +3,7 @@
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { loginUser } from '@/lib/api';
+import { loginUser, saveToken } from '@/lib/api';
 import { AxiosError } from 'axios';
 
 export default function LoginPage() {
@@ -18,7 +18,8 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await loginUser(email, password);
+      const res = await loginUser(email, password);
+      saveToken(res.data.access_token);
       router.push('/dashboard');
     } catch (err) {
       console.error('Login error details:', err);
