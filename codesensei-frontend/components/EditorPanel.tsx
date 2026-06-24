@@ -27,6 +27,7 @@ interface EditorPanelProps {
   onSubmit: (code: string, language: string, focus: string) => void;
   isLoading: boolean;
   error: string;
+  lastSubmission?: { code: string; language: string; focus: string } | null;
 }
 
 export default function EditorPanel({ onSubmit, isLoading, error }: EditorPanelProps) {
@@ -35,6 +36,7 @@ export default function EditorPanel({ onSubmit, isLoading, error }: EditorPanelP
   const [focus, setFocus] = useState('Full Audit');
   const [countdown, setCountdown] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSubmitRef = useRef<{ code: string; language: string; focus: string } | null>(null);
 
   // Detect quota error and start countdown
   useEffect(() => {
@@ -46,6 +48,11 @@ export default function EditorPanel({ onSubmit, isLoading, error }: EditorPanelP
           if (prev === null || prev <= 1) {
             clearInterval(timerRef.current!);
             timerRef.current = null;
+            // Auto-retry when countdown hits 0
+            if (lastSubmitRef.current) {
+              const { code: c, language: l, focus: f } = lastSubmitRef.current;
+              setTimeout(() => onSubmit(c, l, f), 100);
+            }
             return null;
           }
           return prev - 1;
@@ -72,6 +79,7 @@ export default function EditorPanel({ onSubmit, isLoading, error }: EditorPanelP
 
   const handleSubmit = () => {
     if (!code.trim() || isLoading) return;
+    lastSubmitRef.current = { code, language, focus };
     onSubmit(code, language, focus);
   };
 
