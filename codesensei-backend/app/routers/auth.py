@@ -60,13 +60,14 @@ def decode_access_token(token: str) -> dict:
 
 
 def _set_auth_cookie(response: Response, token: str) -> None:
-    """Attach the JWT as an httpOnly, Secure, SameSite=Lax cookie."""
+    """Attach the JWT as an httpOnly, Secure, SameSite=None cookie (cross-origin safe)."""
+    is_prod = settings.environment != "development"
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=settings.environment != "development",  # False in dev (no HTTPS)
-        samesite="lax",
+        secure=is_prod,                        # True in prod (HTTPS required)
+        samesite="none" if is_prod else "lax", # None allows cross-origin (Vercel ↔ Railway)
         max_age=settings.jwt_access_token_expire_minutes * 60,
         path="/",
     )
