@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { registerUser } from '@/lib/api';
 import { AxiosError } from 'axios';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '(not set — using localhost:8000)';
+
 export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -30,12 +32,19 @@ export default function RegisterPage() {
       await registerUser(email, password);
       router.push('/dashboard');
     } catch (err) {
-      console.error('Registration error details:', err);
+      console.error('Registration error:', err);
       const e = err as AxiosError<{ detail: string }>;
-      let msg = e.response?.data?.detail || e.message || 'Registration failed. Please try again.';
+      const status = e.response?.status;
+      const detail = e.response?.data?.detail;
+      let msg: string;
       if (e.message === 'Network Error') {
-        msg = 'Network Error: Cannot reach the backend. Please check the console logs for details.';
+        msg = `[Network Error] Could not connect to backend.\nTarget URL: ${API_URL}/api/auth/register\nThis usually means CORS blocked the request or the server is unreachable.`;
+      } else if (status) {
+        msg = `[HTTP ${status}] ${detail || e.message}`;
+      } else {
+        msg = `[Unknown Error] ${e.message}`;
       }
+      console.error('Parsed error:', msg);
       setError(msg);
     } finally {
       setLoading(false);
@@ -138,7 +147,8 @@ export default function RegisterPage() {
               <div
                 style={{
                   background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)',
-                  borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#f87171',
+                  borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#f87171',
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace',
                 }}
               >
                 {error}
