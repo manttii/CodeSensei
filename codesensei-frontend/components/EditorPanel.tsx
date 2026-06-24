@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Zap, ChevronDown } from 'lucide-react';
 
@@ -33,6 +33,33 @@ export default function EditorPanel({ onSubmit, isLoading, error }: EditorPanelP
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('Python');
   const [focus, setFocus] = useState('Full Audit');
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Detect quota error and start countdown
+  useEffect(() => {
+    const isQuota = error?.toLowerCase().includes('quota') || error?.toLowerCase().includes('60 seconds');
+    if (isQuota && countdown === null) {
+      setCountdown(60);
+      timerRef.current = setInterval(() => {
+        setCountdown(prev => {
+          if (prev === null || prev <= 1) {
+            clearInterval(timerRef.current!);
+            timerRef.current = null;
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    if (!isQuota) {
+      clearInterval(timerRef.current!);
+      timerRef.current = null;
+      setCountdown(null);
+    }
+    return () => { clearInterval(timerRef.current!); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error]);
 
   const charCount = code.length;
   const charPct   = (charCount / MAX_CHARS) * 100;
@@ -142,12 +169,27 @@ export default function EditorPanel({ onSubmit, isLoading, error }: EditorPanelP
         {error ? (
           <span
             style={{
-              fontSize: '13px', color: '#f87171',
-              background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)',
+              fontSize: '13px', color: countdown !== null ? '#fbbf24' : '#f87171',
+              background: countdown !== null ? 'rgba(251,191,36,0.08)' : 'rgba(248,113,113,0.08)',
+              border: `1px solid ${countdown !== null ? 'rgba(251,191,36,0.25)' : 'rgba(248,113,113,0.2)'}`,
               borderRadius: '8px', padding: '6px 12px',
+              display: 'flex', alignItems: 'center', gap: '8px',
             }}
           >
-            ⚠ {error}
+            {countdown !== null ? (
+              <>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: '28px', height: '28px', borderRadius: '50%',
+                  background: 'rgba(251,191,36,0.15)',
+                  fontFamily: 'monospace', fontWeight: '700', fontSize: '14px', color: '#fbbf24',
+                  flexShrink: 0,
+                }}>{countdown}</span>
+                AI quota reached — retrying in {countdown}s…
+              </>
+            ) : (
+              <>⚠ {error}</>
+            )}
           </span>
         ) : (
           <span style={{ fontSize: '12px', color: '#475569' }}>
