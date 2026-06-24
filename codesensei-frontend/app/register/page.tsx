@@ -30,8 +30,13 @@ export default function RegisterPage() {
       await registerUser(email, password);
       router.push('/dashboard');
     } catch (err) {
+      console.error('Registration error details:', err);
       const e = err as AxiosError<{ detail: string }>;
-      setError(e.response?.data?.detail ?? 'Registration failed. Please try again.');
+      let msg = e.response?.data?.detail || e.message || 'Registration failed. Please try again.';
+      if (e.message === 'Network Error') {
+        msg = 'Network Error: Cannot reach the backend. Please check the console logs for details.';
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }

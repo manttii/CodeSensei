@@ -21,8 +21,13 @@ export default function LoginPage() {
       await loginUser(email, password);
       router.push('/dashboard');
     } catch (err) {
+      console.error('Login error details:', err);
       const e = err as AxiosError<{ detail: string }>;
-      setError(e.response?.data?.detail ?? 'Login failed. Please try again.');
+      let msg = e.response?.data?.detail || e.message || 'Login failed. Please try again.';
+      if (e.message === 'Network Error') {
+        msg = 'Network Error: Cannot reach the backend. Please check the console logs for details.';
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
