@@ -48,12 +48,7 @@ export default function EditorPanel({ onSubmit, isLoading, error }: EditorPanelP
           if (prev === null || prev <= 1) {
             clearInterval(timerRef.current!);
             timerRef.current = null;
-            // Auto-retry when countdown hits 0
-            if (lastSubmitRef.current) {
-              const { code: c, language: l, focus: f } = lastSubmitRef.current;
-              setTimeout(() => onSubmit(c, l, f), 100);
-            }
-            return null;
+            return 0; // stay at 0 so user sees "Ready to retry"
           }
           return prev - 1;
         });
@@ -177,7 +172,8 @@ export default function EditorPanel({ onSubmit, isLoading, error }: EditorPanelP
         {error ? (
           <span
             style={{
-              fontSize: '13px', color: countdown !== null ? '#fbbf24' : '#f87171',
+              fontSize: '13px',
+              color: countdown !== null ? '#fbbf24' : '#f87171',
               background: countdown !== null ? 'rgba(251,191,36,0.08)' : 'rgba(248,113,113,0.08)',
               border: `1px solid ${countdown !== null ? 'rgba(251,191,36,0.25)' : 'rgba(248,113,113,0.2)'}`,
               borderRadius: '8px', padding: '6px 12px',
@@ -185,16 +181,29 @@ export default function EditorPanel({ onSubmit, isLoading, error }: EditorPanelP
             }}
           >
             {countdown !== null ? (
-              <>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: '28px', height: '28px', borderRadius: '50%',
-                  background: 'rgba(251,191,36,0.15)',
-                  fontFamily: 'monospace', fontWeight: '700', fontSize: '14px', color: '#fbbf24',
-                  flexShrink: 0,
-                }}>{countdown}</span>
-                AI quota reached — retrying in {countdown}s…
-              </>
+              countdown === 0 ? (
+                <>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: '28px', height: '28px', borderRadius: '50%',
+                    background: 'rgba(74,222,128,0.15)',
+                    fontWeight: '700', fontSize: '14px', color: '#4ade80',
+                    flexShrink: 0,
+                  }}>✓</span>
+                  Quota reset — click Analyze Code to retry!
+                </>
+              ) : (
+                <>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: '28px', height: '28px', borderRadius: '50%',
+                    background: 'rgba(251,191,36,0.15)',
+                    fontFamily: 'monospace', fontWeight: '700', fontSize: '14px', color: '#fbbf24',
+                    flexShrink: 0,
+                  }}>{countdown}</span>
+                  AI quota reached — retrying in {countdown}s…
+                </>
+              )
             ) : (
               <>⚠ {error}</>
             )}

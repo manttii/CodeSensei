@@ -103,7 +103,7 @@ def _call_gemini(prompt: str) -> dict:
     """Call Gemini and parse JSON response. Raises HTTPException on failure."""
     try:
         response = _genai_client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.0-flash-lite",
             contents=prompt,
             config={
                 "temperature": 0.2,
